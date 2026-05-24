@@ -4,16 +4,16 @@ import com.synthesia.stage1.midi.MidiFile
 import com.synthesia.stage1.midi.NoteEvent
 
 // A NoteSlot bundles notes that share a startTick — i.e. one chord or one single note.
-// Notes that drift by a few ticks after quantization are merged into the same slot;
-// the grouping uses two thresholds (PianoBooster pattern):
-//   - noteGap  = max ticks between CONSECUTIVE notes in the same chord
-//   - maxSpan  = max ticks from the chord's FIRST note to its LATEST note
-// noteGap catches typical quantization drift; maxSpan stops a long arpeggio from
-// collapsing into a single chord.
-data class NoteSlot(val notes: List<NoteEvent>, val startTick: Long) {
-    // Distinct pitches only — a chord can't physically have two voices on the same key,
-    // so duplicates (common in multi-track MIDIs that double a melody an octave apart but
-    // happen to collide on a unison) collapse to one slot pitch.
+// Notes that drift by a few ticks after quantization are merged into the same slot via
+// PianoBooster's two-threshold model (noteGap + maxSpan).
+data class NoteSlot(
+    val notes: List<NoteEvent>,
+    val startTick: Long,
+    // Real-time offset from song start, in seconds. Computed from MidiFile.ticksPerQuarter
+    // + initial Set Tempo (microsPerQuarter). Mid-song tempo changes are ignored (Stage 1).
+    val startTimeSec: Float,
+) {
+    // Distinct pitches only — same key can't be physically pressed twice simultaneously.
     val pitches: IntArray = notes.map { it.pitch }.distinct().toIntArray()
 }
 
@@ -21,8 +21,12 @@ class PlayheadController(midi: MidiFile) {
 
     private val noteGap: Long = (midi.ticksPerQuarter / 16L).coerceAtLeast(2L)
     private val maxSpan: Long = (midi.ticksPerQuarter / 4L).coerceAtLeast(noteGap + 2L)
+    private val secPerTick: Float = (midi.microsPerQuarter.toFloat() / 1_000_000f) / midi.ticksPerQuarter.toFloat()
 
-    val slots: List<NoteSlot> = buildSlots(midi.notes, noteGap, maxSpan)
+    val slots: List<NoteSlot> = buildSlots(midi.notes, noteGap, maxSpan, secPerTick)
+
+    // Total song length (last slot's start). Used by the UI animation loop.
+    val songLengthSec: Float = slots.lastOrNull()?.startTimeSec ?: 0f
 
     var index: Int = 0
         private set
@@ -39,7 +43,12 @@ class PlayheadController(midi: MidiFile) {
     }
 }
 
-private fun buildSlots(notes: List<NoteEvent>, noteGap: Long, maxSpan: Long): List<NoteSlot> {
+private fun buildSlots(
+    notes: List<NoteEvent>,
+    noteGap: Long,
+    maxSpan: Long,
+    secPerTick: Float,
+): List<NoteSlot> {
     if (notes.isEmpty()) return emptyList()
     val sorted = notes.sortedBy { it.startTick }
     val out = ArrayList<NoteSlot>()
@@ -54,12 +63,12 @@ private fun buildSlots(notes: List<NoteEvent>, noteGap: Long, maxSpan: Long): Li
             current.add(n)
             lastInGroup = n.startTick
         } else {
-            out.add(NoteSlot(current.toList(), groupStart))
+            out.add(NoteSlot(current.toList(), groupStart, groupStart * secPerTick))
             current = mutableListOf(n)
             groupStart = n.startTick
             lastInGroup = n.startTick
         }
     }
-    out.add(NoteSlot(current.toList(), groupStart))
+    out.add(NoteSlot(current.toList(), groupStart, groupStart * secPerTick))
     return out
 }

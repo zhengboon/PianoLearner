@@ -9,17 +9,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.synthesia.desktop.game.GameSession
 import com.synthesia.desktop.midi.midiListToNames
+import kotlinx.coroutines.flow.collectLatest
 
-private const val LOOKAHEAD_SLOTS = 6
+private const val PRE_ROLL_SEC = 1.5f
+private const val PX_PER_SEC_DEFAULT = 220f
 
 @Composable
 fun GameScreen(
@@ -27,17 +34,50 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by session.state.collectAsState()
+    val debug by session.debug.collectAsState()
 
-    val upcoming: List<List<Int>> = remember(state.slotIndex, state.totalSlots) {
-        val start = state.slotIndex
-        val end = (start + LOOKAHEAD_SLOTS).coerceAtMost(session.slots.size)
-        (start until end).map { idx -> session.slots[idx].notes.map { it.pitch } }
+    var currentTimeSec by remember { mutableFloatStateOf(-PRE_ROLL_SEC) }
+
+    LaunchedEffect(session) {
+        snapshotFlow { state.slotIndex }.collectLatest { idx ->
+            val target = session.slots.getOrNull(idx)?.startTimeSec ?: return@collectLatest
+            if (idx == 0 && currentTimeSec > target) {
+                currentTimeSec = target - PRE_ROLL_SEC
+            }
+        }
     }
 
-    Column(modifier = modifier.fillMaxSize().background(Color.Black)) {
+    LaunchedEffect(session) {
+        var lastFrameMs = -1L
+        while (true) {
+            withFrameMillis { frameTimeMs ->
+                if (lastFrameMs < 0) {
+                    lastFrameMs = frameTimeMs
+                    return@withFrameMillis
+                }
+                val dt = (frameTimeMs - lastFrameMs).coerceAtMost(64L) / 1000f
+                lastFrameMs = frameTimeMs
+                val pauseAt = session.slots.getOrNull(state.slotIndex)?.startTimeSec
+                if (pauseAt != null) {
+                    val proposed = currentTimeSec + dt
+                    currentTimeSec = if (proposed >= pauseAt) pauseAt else proposed
+                } else {
+                    currentTimeSec += dt
+                }
+            }
+        }
+    }
+
+    Column(modifier = modifier.fillMaxSize().background(Color(0xFF0A0A0C))) {
+        Text(
+            text = "mic: rms=${"%.4f".format(debug.rms)}  hz=${debug.hz?.let { "%.1f".format(it) } ?: "—"}  frames=${debug.frameCount}",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            color = Color(0xFF7A7A7A),
+        )
+
         if (state.isDone) {
             Box(
-                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(6.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("Song complete.", color = Color.White)
@@ -46,22 +86,29 @@ fun GameScreen(
             val expectedNames = midiListToNames(state.expectedPitches)
             val heardNames = midiListToNames(state.heardPitches.sorted())
             Text(
-                text = "Slot ${state.slotIndex + 1} / ${state.totalSlots}  expected=[$expectedNames]  heard=[$heardNames]",
-                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                color = Color.White,
+                text = "${state.slotIndex + 1} / ${state.totalSlots}  ·  next [$expectedNames]  heard [$heardNames]",
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                color = Color(0xFFE7E5E4),
             )
         }
 
         FallingNotesView(
-            upcomingSlots = upcoming,
+            slots = session.slots,
+            currentSlotIndex = state.slotIndex,
+            currentTimeSec = currentTimeSec,
             heardCurrent = state.heardPitches,
-            modifier = Modifier.fillMaxWidth().weight(1f),
+            pxPerSec = PX_PER_SEC_DEFAULT,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
         )
 
         PianoKeyboardView(
             expected = state.expectedPitches.toSet(),
             heard = state.heardPitches,
-            modifier = Modifier.fillMaxWidth().height(120.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp),
         )
     }
 }

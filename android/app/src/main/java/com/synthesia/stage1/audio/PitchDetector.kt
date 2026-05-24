@@ -22,6 +22,10 @@ class PitchDetector(
     private var floatBuf: FloatArray = FloatArray(0)
     private var nsdf: FloatArray = FloatArray(0)
 
+    // Diagnostic: last frame's RMS, exposed so the UI can show a mic-level meter.
+    @Volatile var lastRms: Float = 0f
+        private set
+
     fun detect(frame: ShortArray): Float? {
         val n = frame.size
         if (n < 64) return null
@@ -35,6 +39,7 @@ class PitchDetector(
             sumSq += v * v
         }
         val rms = sqrt(sumSq / n)
+        lastRms = rms
         if (rms < rmsGate) return null
 
         val maxTau = (sampleRate / minFreqHz).toInt().coerceAtMost(n / 2)

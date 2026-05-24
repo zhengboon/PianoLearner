@@ -34,7 +34,7 @@ class MicCapture(
         val r = openRecorder()
         if (r.state != AudioRecord.STATE_INITIALIZED) {
             r.release()
-            throw IllegalStateException("AudioRecord initialization failed for both UNPROCESSED and VOICE_RECOGNITION sources")
+            throw IllegalStateException("AudioRecord initialization failed for both VOICE_RECOGNITION and MIC sources")
         }
         recorder = r
         running = true
@@ -64,17 +64,22 @@ class MicCapture(
 
     @SuppressLint("MissingPermission")
     private fun openRecorder(): AudioRecord {
-        // Try UNPROCESSED first — preserves pitch on supported devices.
+        // VOICE_RECOGNITION is universally supported and gives clean audio without AGC.
+        // We previously tried UNPROCESSED first, but many devices report STATE_INITIALIZED
+        // for it and then deliver pure silence (the HAL doesn't actually support it,
+        // and only the AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED probe — which
+        // needs a Context — tells the truth). Stay safe.
         try {
             val ar = AudioRecord(
-                MediaRecorder.AudioSource.UNPROCESSED,
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
                 sampleRate, channelConfig, encoding, bufferSize,
             )
             if (ar.state == AudioRecord.STATE_INITIALIZED) return ar
             ar.release()
-        } catch (_: Throwable) { /* fall through */ }
+        } catch (_: Throwable) { /* fall through to MIC */ }
+        // Last resort: generic MIC source.
         return AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            MediaRecorder.AudioSource.MIC,
             sampleRate, channelConfig, encoding, bufferSize,
         )
     }

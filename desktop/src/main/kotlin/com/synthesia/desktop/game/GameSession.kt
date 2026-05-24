@@ -22,9 +22,14 @@ class GameSession(
     // the mic capture thread's onFrame().
     private val heardInCurrentSlot = HashSet<Int>()
     @Volatile private var lastAdvanceAtNanos = 0L
+    @Volatile private var frameCount = 0L
 
     private val _state = MutableStateFlow(GameState.fromPlayhead(playhead))
     val state: StateFlow<GameState> = _state.asStateFlow()
+
+    // Per-frame diagnostic: mic RMS + last detected Hz + frame counter.
+    private val _debug = MutableStateFlow(MicDebug())
+    val debug: StateFlow<MicDebug> = _debug.asStateFlow()
 
     fun start() {
         mic.start { frame -> onFrame(frame) }
@@ -42,14 +47,18 @@ class GameSession(
     }
 
     private fun onFrame(frame: ShortArray) {
+        frameCount++
         val slot = playhead.current ?: return
         val now = System.nanoTime()
         // lastAdvanceAtNanos is @Volatile — Long reads/writes are atomic via the
         // volatile contract on JVM, so this check is race-free against reset() and the
         // sync'd block below.
-        if (now - lastAdvanceAtNanos < advanceDebounceNanos) return
 
-        val hz = detector.detect(frame) ?: return
+        val hz = detector.detect(frame)
+        _debug.value = MicDebug(rms = detector.lastRms, hz = hz, frameCount = frameCount)
+
+        if (now - lastAdvanceAtNanos < advanceDebounceNanos) return
+        if (hz == null) return
         val matchedPitch = matcher.matchInSlot(hz, slot.pitches) ?: return
 
         synchronized(this) {
