@@ -35,6 +35,11 @@ class PlayheadController(midi: MidiFile) {
     fun reset() {
         index = 0
     }
+
+    // Jump directly to a slot. Clamps to [0, slots.size]; slots.size puts us at "done".
+    fun seekTo(newIndex: Int) {
+        index = newIndex.coerceIn(0, slots.size)
+    }
 }
 
 private fun buildSlots(

@@ -30,12 +30,15 @@ class GameSession(
     private val _state = MutableStateFlow(GameState.fromPlayhead(playhead))
     val state: StateFlow<GameState> = _state.asStateFlow()
 
-    // Per-frame diagnostic: mic RMS + last detected Hz + frame counter. Used by the UI
-    // to render a tiny live mic-level / detector strip so you can tell at a glance
-    // whether silence (rms=0), too-quiet (rms<gate), or detector failure (hz=null) is
-    // the reason the playhead isn't advancing.
+    // Per-frame diagnostic: mic RMS + last detected Hz + frame counter.
     private val _debug = MutableStateFlow(MicDebug())
     val debug: StateFlow<MicDebug> = _debug.asStateFlow()
+
+    // Increments on every explicit user seek. UI watches this to snap the visual
+    // currentTimeSec to a pre-roll position so the new slot has lead-in animation
+    // instead of jumping cold.
+    private val _seekVersion = MutableStateFlow(0)
+    val seekVersion: StateFlow<Int> = _seekVersion.asStateFlow()
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun start() {
@@ -51,6 +54,16 @@ class GameSession(
         heardInCurrentSlot.clear()
         lastAdvanceAtNanos = 0L
         _state.value = GameState.fromPlayhead(playhead)
+        _seekVersion.value = _seekVersion.value + 1
+    }
+
+    // Jump the playhead to a specific slot. Safe to call from any thread.
+    fun seekTo(slotIndex: Int) = synchronized(this) {
+        playhead.seekTo(slotIndex)
+        heardInCurrentSlot.clear()
+        lastAdvanceAtNanos = 0L
+        _state.value = GameState.fromPlayhead(playhead)
+        _seekVersion.value = _seekVersion.value + 1
     }
 
     private fun onFrame(frame: ShortArray) {

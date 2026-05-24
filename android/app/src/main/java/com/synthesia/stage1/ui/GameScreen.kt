@@ -15,7 +15,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.synthesia.stage1.game.GameSession
 import com.synthesia.stage1.midi.midiListToNames
-import kotlinx.coroutines.flow.collectLatest
 
 private const val PRE_ROLL_SEC = 1.5f          // visual lead-in: notes start above the hit line and approach
 private const val PX_PER_SEC_DEFAULT = 220f    // scroll speed; bigger = notes fall faster
@@ -35,25 +33,19 @@ fun GameScreen(
 ) {
     val state by session.state.collectAsState()
     val debug by session.debug.collectAsState()
+    val seekVersion by session.seekVersion.collectAsState()
 
-    // Continuous-scroll playhead. Advances 1.0s/s in real time, but freezes at the
-    // current slot's startTimeSec until the player advances. When slotIndex changes
-    // (note hit), we don't snap; we just let the time keep flowing toward the new
-    // slot's startTimeSec, giving the next falling note time to descend.
     var currentTimeSec by remember { mutableFloatStateOf(-PRE_ROLL_SEC) }
 
-    // When the playhead changes slot (whether by hit or by reset), snap currentTime
-    // to PRE_ROLL_SEC before the new target so the next note has lead-in.
-    LaunchedEffect(session) {
-        snapshotFlow { state.slotIndex }.collectLatest { idx ->
-            val target = session.slots.getOrNull(idx)?.startTimeSec ?: return@collectLatest
-            // First slot of the song: hold at -PRE_ROLL_SEC so the first note falls into place.
-            if (idx == 0 && currentTimeSec > target) {
-                currentTimeSec = target - PRE_ROLL_SEC
-            }
-        }
+    // On every explicit seek (including reset and tap on the scrub bar), snap the
+    // visual playhead to a pre-roll position so the new slot has lead-in animation.
+    LaunchedEffect(seekVersion) {
+        val target = session.slots.getOrNull(state.slotIndex)?.startTimeSec ?: 0f
+        currentTimeSec = (target - PRE_ROLL_SEC).coerceAtLeast(-PRE_ROLL_SEC)
     }
 
+    // Real-time animation loop. Advances 1.0s/s but PAUSES at the current slot's
+    // startTimeSec so an un-played note doesn't fall past the hit line.
     LaunchedEffect(session) {
         var lastFrameMs = -1L
         while (true) {
@@ -93,12 +85,25 @@ fun GameScreen(
         } else {
             val expectedNames = midiListToNames(state.expectedPitches)
             val heardNames = midiListToNames(state.heardPitches.sorted())
+            val cur = session.slots.getOrNull(state.slotIndex)?.startTimeSec ?: 0f
+            val total = session.slots.lastOrNull()?.startTimeSec ?: 0f
             Text(
-                text = "${state.slotIndex + 1} / ${state.totalSlots}  ·  next [$expectedNames]  heard [$heardNames]",
+                text = "${state.slotIndex + 1} / ${state.totalSlots}  ·  ${"%.1f".format(cur)}s / ${"%.1f".format(total)}s  ·  next [$expectedNames]  heard [$heardNames]",
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 color = Color(0xFFE7E5E4),
             )
         }
+
+        // Scrub bar — tap to jump, drag to scrub. Maps fraction -> slot index.
+        SongScrubBar(
+            totalSlots = state.totalSlots,
+            currentSlot = state.slotIndex,
+            onSeek = { session.seekTo(it) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        )
 
         FallingNotesView(
             slots = session.slots,
