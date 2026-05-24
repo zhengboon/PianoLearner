@@ -1,0 +1,164 @@
+:root {
+  --bg: #0e0e10;
+  --bg-elev: #18181b;
+  --bg-card: #1f1f23;
+  --fg: #e7e5e4;
+  --fg-dim: #a8a29e;
+  --accent: #fbbf24;
+  --accent-dim: #d97706;
+  --keep: #66bb6a;
+  --link: #93c5fd;
+  --border: #2c2c30;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code, pre {
+  font-family: var(--mono);
+  background: var(--bg-elev);
+  border-radius: 6px;
+}
+code { padding: 0.1em 0.35em; font-size: 0.9em; }
+pre  { padding: 1rem; overflow-x: auto; border: 1px solid var(--border); }
+pre code { background: none; padding: 0; }
+
+.hero {
+  padding: 4rem 2rem 3rem;
+  text-align: center;
+  background: radial-gradient(ellipse at top, #1a1a1f 0%, var(--bg) 60%);
+  border-bottom: 1px solid var(--border);
+}
+.hero h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--accent) 0%, #facc15 50%, var(--keep) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tagline {
+  max-width: 720px;
+  margin: 0 auto 2rem;
+  font-size: 1.2rem;
+  color: var(--fg-dim);
+}
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-block;
+  padding: 0.7rem 1.3rem;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-weight: 500;
+  text-decoration: none;
+  transition: transform 0.1s, background 0.15s;
+}
+.btn:hover { text-decoration: none; background: #2a2a2e; transform: translateY(-1px); }
+.btn.primary { background: var(--accent); border-color: var(--accent-dim); color: #1a1a1a; }
+.btn.primary:hover { background: #fcd34d; }
+
+section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+  border-bottom: 1px solid var(--border);
+}
+section h2 {
+  margin: 0 0 1.5rem;
+  font-size: 1.8rem;
+  letter-spacing: -0.01em;
+}
+section h3 { margin: 1.5rem 0 0.5rem; color: var(--accent); }
+
+.screenshots .shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+figure { margin: 0; }
+figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #000;
+}
+figcaption {
+  font-size: 0.9rem;
+  color: var(--fg-dim);
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.how ol, .tech ul, .testing ul {
+  padding-left: 1.5rem;
+}
+.how li, .tech li, .testing li { margin: 0.4rem 0; }
+
+footer {
+  text-align: center;
+  padding: 2rem;
+  color: var(--fg-dim);
+  font-size: 0.9rem;
+}
+
+/* Demo page specifics */
+.demo-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+.demo-page .toolbar {
+  flex: 0 0 auto;
+  padding: 0.5rem 1rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.demo-page .toolbar h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  flex: 1;
+}
+.demo-page .toolbar button {
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.demo-page .toolbar button:hover { background: #2a2a2e; }
+.demo-page .toolbar button.primary { background: var(--accent); color: #1a1a1a; border-color: var(--accent-dim); }
+.demo-page .toolbar .status { color: var(--fg-dim); font-size: 0.85rem; margin-right: 1rem; }
+.demo-page #stage {
+  flex: 1 1 auto;
+  position: relative;
+  background: #000;
+}
+#piano-canvas { display: block; width: 100%; height: 100%; }

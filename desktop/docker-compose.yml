@@ -1,0 +1,24 @@
+services:
+  build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: synthesia-desktop-build:latest
+    volumes:
+      - .:/workspace
+      - gradle-cache:/root/.gradle
+    working_dir: /workspace
+    command: gradle --no-daemon build
+
+  shell:
+    image: synthesia-desktop-build:latest
+    volumes:
+      - .:/workspace
+      - gradle-cache:/root/.gradle
+    working_dir: /workspace
+    entrypoint: ["/bin/bash"]
+    stdin_open: true
+    tty: true
+
+volumes:
+  gradle-cache:

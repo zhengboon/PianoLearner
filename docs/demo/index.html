@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PianoLearner — interactive demo</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="demo-page">
+
+<div class="toolbar">
+  <h2>PianoLearner demo</h2>
+  <span class="status" id="status">Click a key, or press the play button.</span>
+  <button id="play-scale" class="primary">Play C-major scale</button>
+  <button id="stop">Stop</button>
+  <a class="btn" href="../index.html" style="padding: 0.4rem 0.9rem; font-size: 0.9rem;">← Back</a>
+</div>
+
+<div id="stage">
+  <canvas id="piano-canvas"></canvas>
+</div>
+
+<script src="demo.js"></script>
+</body>
+</html>

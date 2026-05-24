@@ -1,0 +1,41 @@
+## Gradle
+.gradle/
+**/.gradle/
+**/build/
+!**/src/**/build/
+local.properties
+
+## IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+
+## Kotlin compiler
+**/.kotlin/
+
+## Logs + runtime
+*.log
+*.apk
+*.aab
+*.keystore
+*.jks
+*.pyc
+__pycache__/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Project-local generated artifacts
+docker-build.log
+host-build.log
+testplayer*.log
+smoke-*.png
+BLOCKED_*.md
+
+## Goal-loop state (lives at d:\ in working repo, not part of source)
+.goal-state*.json
+.goal-session.log

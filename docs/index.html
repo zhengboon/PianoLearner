@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PianoLearner — step-by-step piano practice that listens</title>
+<meta name="description" content="A Synthesia-style step-by-step piano practice tool. Loads a MIDI file, listens through your microphone, and only advances when you've played the right note.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="hero">
+  <h1>PianoLearner</h1>
+  <p class="tagline">A Synthesia-style step-by-step piano practice tool. Loads a MIDI file, listens through your microphone, and only advances when you've actually played the right note on a real piano.</p>
+  <nav class="actions">
+    <a class="btn primary" href="demo/index.html">Try the interactive demo</a>
+    <a class="btn" href="https://github.com/zhengboon/PianoLearner">View on GitHub</a>
+    <a class="btn" href="#download">Download</a>
+  </nav>
+</header>
+
+<section id="screenshots" class="screenshots">
+  <h2>What it looks like</h2>
+  <div class="shots">
+    <figure>
+      <img src="screenshots/picker.png" alt="Picker screen with file-picker and sample buttons" loading="lazy">
+      <figcaption>Picker — pick a <code>.mid</code> file or use the bundled sample.</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/game.png" alt="Game screen showing falling notes and 88-key piano with current note highlighted" loading="lazy">
+      <figcaption>Game — 88-key piano with current note highlighted; falling notes lane above.</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/permission.png" alt="Permission gate screen requesting microphone access" loading="lazy">
+      <figcaption>First launch asks for microphone access.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="how" class="how">
+  <h2>How it works</h2>
+  <ol>
+    <li><strong>Load a MIDI file.</strong> The in-tree SMF Format 0/1 parser extracts NoteOn/NoteOff events.</li>
+    <li><strong>Group notes into chord slots</strong> using PianoBooster's two-threshold model (consecutive-gap + first-to-last-span).</li>
+    <li><strong>Open the microphone</strong> — 16-bit PCM mono at 44.1 kHz, 4 096-sample frames.</li>
+    <li><strong>Run each frame through McLeod Pitch Method</strong> (Tartini zero-crossing peak picker, in-tree port of TarsosDSP's algorithm). Returns the dominant pitch.</li>
+    <li><strong>Match against the current slot</strong> within ±50 cents. When every unique pitch in the slot has been heard, the playhead advances.</li>
+  </ol>
+</section>
+
+<section id="download" class="download">
+  <h2>Download &amp; build</h2>
+  <p>Prebuilt artifacts are on the <a href="https://github.com/zhengboon/PianoLearner/releases">Releases page</a>. To build from source:</p>
+
+  <h3>Android</h3>
+  <pre><code>cd android
+docker compose run --rm build
+adb install -r app/build/outputs/apk/debug/app-debug.apk</code></pre>
+  <p>Min SDK 26, target SDK 34. Docker image includes Android cmdline-tools, platform-34, build-tools 34.0.0, and Gradle 8.7.</p>
+
+  <h3>Windows desktop</h3>
+  <pre><code>cd desktop
+docker compose run --rm build           # compile + unit tests (Linux container)
+gradlew.bat --no-daemon createDistributable  # native .exe with bundled JRE (host JDK 17)</code></pre>
+  <p>jpackage is OS-bound — Windows installer must be built on Windows. The Docker step verifies code health; the host step produces a runnable folder.</p>
+</section>
+
+<section id="tech" class="tech">
+  <h2>Stack</h2>
+  <ul>
+    <li><strong>Kotlin 1.9.24</strong> across both platforms</li>
+    <li><strong>Android</strong>: Jetpack Compose (BOM 2024.06), AGP 8.5, kotlinx-coroutines-android 1.7.3</li>
+    <li><strong>Desktop</strong>: Compose Multiplatform 1.6.10, JDK 17 (Eclipse Temurin)</li>
+    <li><strong>Pitch detection</strong>: in-tree McLeod Pitch Method (~200 lines, no external dep) — ported from <a href="https://github.com/JorenSix/TarsosDSP">TarsosDSP</a></li>
+    <li><strong>MIDI parser</strong>: in-tree SMF Format 0/1 reader, ~200 lines</li>
+    <li><strong>Chord grouping</strong>: PianoBooster two-threshold model</li>
+    <li><strong>Build</strong>: Gradle 8.7, Docker for hermetic CI</li>
+  </ul>
+</section>
+
+<section id="testing" class="testing">
+  <h2>Verification</h2>
+  <p>The desktop project includes an offline <code>TestPlayer</code> that synthesizes audio for every slot of a MIDI file and runs it through the exact <code>PitchDetector</code> + <code>PitchMatcher</code> chain the live app uses.</p>
+  <ul>
+    <li><strong>613 / 613</strong> chord slots in Pachelbel's Canon</li>
+    <li><strong>500 / 500</strong> randomly-sampled MIDIs from a 13 536-file generated chord corpus (<a href="https://github.com/ldrolez/free-midi-chords">ldrolez/free-midi-chords</a>)</li>
+    <li><strong>27 JVM unit tests</strong> across both projects</li>
+  </ul>
+  <pre><code>cd desktop
+gradlew.bat -PmidiPath="C:\path\to\file.mid" testPlayer
+gradlew.bat -PmidiPath="C:\path\to\corpus" -PsampleSize=500 testPlayer</code></pre>
+</section>
+
+<footer>
+  <p>MIT licensed. Source on <a href="https://github.com/zhengboon/PianoLearner">GitHub</a>.</p>
+</footer>
+
+</body>
+</html>

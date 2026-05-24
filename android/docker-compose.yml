@@ -1,0 +1,26 @@
+services:
+  build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: synthesia-clone-build:latest
+    volumes:
+      - .:/workspace
+      - gradle-cache:/root/.gradle
+    working_dir: /workspace
+    # Runs tests then assembles. Use `gradle --no-daemon :app:assembleDebug` if you only need
+    # the APK without unit tests (faster).
+    command: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+
+  shell:
+    image: synthesia-clone-build:latest
+    volumes:
+      - .:/workspace
+      - gradle-cache:/root/.gradle
+    working_dir: /workspace
+    entrypoint: ["/bin/bash"]
+    stdin_open: true
+    tty: true
+
+volumes:
+  gradle-cache:

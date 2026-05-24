@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Synthesia Clone</string>
+    <string name="pick_midi">Pick a MIDI file</string>
+    <string name="permission_mic_rationale">The mic is used to hear when you play the expected note on your piano.</string>
+    <string name="status_waiting_for_note">Waiting for: %1$s</string>
+    <string name="status_done">Song complete.</string>
+</resources>
