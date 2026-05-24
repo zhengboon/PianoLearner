@@ -10,7 +10,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.sp
 
 @Composable
 fun PianoKeyboardView(
@@ -50,9 +49,11 @@ fun PianoKeyboardView(
             if (midi % 12 == 0) {
                 val octave = midi / 12 - 1
                 val label = "C$octave"
+                // .toSp() on DrawScope (extends Density) — see android note. .sp would
+                // double-scale at high density.
                 val style = TextStyle(
                     color = Color(0xFFB0B0B0),
-                    fontSize = (whiteW * 0.30f).coerceIn(8f, 18f).sp,
+                    fontSize = (whiteW * 0.30f).coerceIn(8f, 18f).toSp(),
                 )
                 val layout = textMeasurer.measure(label, style)
                 drawText(

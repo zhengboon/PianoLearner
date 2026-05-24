@@ -10,7 +10,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.sp
 
 // Sightread-style 88-key keyboard. White keys rounded at the bottom, octave labels (C1..C8)
 // on each C, pressed keys get a 2px sink + colored overlay (yellow=expected, green=heard).
@@ -55,9 +54,13 @@ fun PianoKeyboardView(
             if (midi % 12 == 0) {
                 val octave = midi / 12 - 1
                 val label = "C$octave"
+                // .toSp() on DrawScope (extends Density) converts a pixel-typed Float to
+                // a TextUnit that renders at exactly that pixel size on this density.
+                // Using `.sp` would interpret the Float AS sp and multiply by density
+                // again at draw time -> oversized labels on xxhdpi+ devices.
                 val style = TextStyle(
                     color = Color(0xFFB0B0B0),
-                    fontSize = (whiteW * 0.30f).coerceIn(8f, 18f).sp,
+                    fontSize = (whiteW * 0.30f).coerceIn(8f, 18f).toSp(),
                 )
                 val layout = textMeasurer.measure(label, style)
                 drawText(

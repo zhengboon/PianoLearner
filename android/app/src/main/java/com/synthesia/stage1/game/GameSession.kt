@@ -34,11 +34,12 @@ class GameSession(
     private val _debug = MutableStateFlow(MicDebug())
     val debug: StateFlow<MicDebug> = _debug.asStateFlow()
 
-    // Increments on every explicit user seek. UI watches this to snap the visual
-    // currentTimeSec to a pre-roll position so the new slot has lead-in animation
-    // instead of jumping cold.
-    private val _seekVersion = MutableStateFlow(0)
-    val seekVersion: StateFlow<Int> = _seekVersion.asStateFlow()
+    // Atomic seek event. Bumped on every explicit user seek (and on reset).
+    // Carries both the version (for change detection) AND the target slot's
+    // startTimeSec — so the UI doesn't have to read state.slotIndex separately
+    // (which could be stale at end-of-song).
+    private val _seekSnap = MutableStateFlow(SeekSnap(0, 0f))
+    val seekSnap: StateFlow<SeekSnap> = _seekSnap.asStateFlow()
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun start() {
@@ -54,7 +55,7 @@ class GameSession(
         heardInCurrentSlot.clear()
         lastAdvanceAtNanos = 0L
         _state.value = GameState.fromPlayhead(playhead)
-        _seekVersion.value = _seekVersion.value + 1
+        bumpSeekSnap()
     }
 
     // Jump the playhead to a specific slot. Safe to call from any thread.
@@ -63,7 +64,16 @@ class GameSession(
         heardInCurrentSlot.clear()
         lastAdvanceAtNanos = 0L
         _state.value = GameState.fromPlayhead(playhead)
-        _seekVersion.value = _seekVersion.value + 1
+        bumpSeekSnap()
+    }
+
+    private fun bumpSeekSnap() {
+        // After seek/reset, playhead.index can be in [0, slots.size]. Clamp to
+        // lastIndex for the time lookup so end-of-song seek points to the final
+        // slot's time, not 0f.
+        val effectiveIdx = playhead.index.coerceAtMost(slots.lastIndex.coerceAtLeast(0))
+        val target = slots.getOrNull(effectiveIdx)?.startTimeSec ?: 0f
+        _seekSnap.value = SeekSnap(_seekSnap.value.version + 1, target)
     }
 
     private fun onFrame(frame: ShortArray) {

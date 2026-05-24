@@ -31,9 +31,9 @@ class GameSession(
     private val _debug = MutableStateFlow(MicDebug())
     val debug: StateFlow<MicDebug> = _debug.asStateFlow()
 
-    // Increments on every explicit user seek.
-    private val _seekVersion = MutableStateFlow(0)
-    val seekVersion: StateFlow<Int> = _seekVersion.asStateFlow()
+    // Atomic seek event — version + target time bundled to avoid stale reads.
+    private val _seekSnap = MutableStateFlow(SeekSnap(0, 0f))
+    val seekSnap: StateFlow<SeekSnap> = _seekSnap.asStateFlow()
 
     fun start() {
         mic.start { frame -> onFrame(frame) }
@@ -48,7 +48,7 @@ class GameSession(
         heardInCurrentSlot.clear()
         lastAdvanceAtNanos = 0L
         _state.value = GameState.fromPlayhead(playhead)
-        _seekVersion.value = _seekVersion.value + 1
+        bumpSeekSnap()
     }
 
     // Jump the playhead to a specific slot. Safe to call from any thread.
@@ -57,7 +57,13 @@ class GameSession(
         heardInCurrentSlot.clear()
         lastAdvanceAtNanos = 0L
         _state.value = GameState.fromPlayhead(playhead)
-        _seekVersion.value = _seekVersion.value + 1
+        bumpSeekSnap()
+    }
+
+    private fun bumpSeekSnap() {
+        val effectiveIdx = playhead.index.coerceAtMost(slots.lastIndex.coerceAtLeast(0))
+        val target = slots.getOrNull(effectiveIdx)?.startTimeSec ?: 0f
+        _seekSnap.value = SeekSnap(_seekSnap.value.version + 1, target)
     }
 
     private fun onFrame(frame: ShortArray) {

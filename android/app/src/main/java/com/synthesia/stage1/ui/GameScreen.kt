@@ -33,15 +33,16 @@ fun GameScreen(
 ) {
     val state by session.state.collectAsState()
     val debug by session.debug.collectAsState()
-    val seekVersion by session.seekVersion.collectAsState()
+    val seekSnap by session.seekSnap.collectAsState()
 
     var currentTimeSec by remember { mutableFloatStateOf(-PRE_ROLL_SEC) }
 
     // On every explicit seek (including reset and tap on the scrub bar), snap the
-    // visual playhead to a pre-roll position so the new slot has lead-in animation.
-    LaunchedEffect(seekVersion) {
-        val target = session.slots.getOrNull(state.slotIndex)?.startTimeSec ?: 0f
-        currentTimeSec = (target - PRE_ROLL_SEC).coerceAtLeast(-PRE_ROLL_SEC)
+    // visual playhead to (targetTimeSec - PRE_ROLL_SEC). The target time travels
+    // with the version inside SeekSnap, so we don't have to read state.slotIndex
+    // here — avoids a race when scrubbing right after song-complete.
+    LaunchedEffect(seekSnap.version) {
+        currentTimeSec = (seekSnap.targetTimeSec - PRE_ROLL_SEC).coerceAtLeast(-PRE_ROLL_SEC)
     }
 
     // Real-time animation loop. Advances 1.0s/s but PAUSES at the current slot's

@@ -1,8 +1,9 @@
 package com.synthesia.stage1.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -10,7 +11,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 
-// Tap anywhere to jump; drag to scrub. Independent fraction (0..1) maps to slot index.
+// Tap or drag to seek. A single pointerInput owns both gestures (via awaitEachGesture)
+// so a fast flick can't fire a tap callback AND a drag callback for the same gesture.
 @Composable
 fun SongScrubBar(
     totalSlots: Int,
@@ -19,36 +21,35 @@ fun SongScrubBar(
     modifier: Modifier = Modifier,
 ) {
     Canvas(
-        modifier = modifier
-            .pointerInput(totalSlots) {
-                detectTapGestures { offset ->
-                    if (totalSlots == 0) return@detectTapGestures
-                    val idx = ((offset.x / size.width) * totalSlots).toInt().coerceIn(0, totalSlots - 1)
+        modifier = modifier.pointerInput(totalSlots) {
+            if (totalSlots == 0) return@pointerInput
+            awaitEachGesture {
+                val down = awaitFirstDown()
+                fun seekAt(x: Float) {
+                    val idx = ((x / size.width) * totalSlots).toInt().coerceIn(0, totalSlots - 1)
                     onSeek(idx)
+                }
+                // Initial tap fires immediately
+                seekAt(down.position.x)
+                // Track drag until pointer release
+                drag(down.id) { change ->
+                    seekAt(change.position.x)
+                    change.consume()
                 }
             }
-            .pointerInput(totalSlots) {
-                detectDragGestures { change, _ ->
-                    if (totalSlots == 0) return@detectDragGestures
-                    val idx = ((change.position.x / size.width) * totalSlots).toInt().coerceIn(0, totalSlots - 1)
-                    onSeek(idx)
-                }
-            },
+        },
     ) {
-        // Track
         drawRect(Color(0xFF1B1D25), size = size)
         if (totalSlots == 0) return@Canvas
 
         val fraction = currentSlot.toFloat() / totalSlots
         val fillX = (size.width * fraction).coerceIn(0f, size.width)
 
-        // Filled portion
         drawRect(
             color = Color(0xFFFB923C),
             topLeft = Offset.Zero,
             size = Size(fillX, size.height),
         )
-        // Thumb
         val thumbR = size.height * 0.45f
         drawCircle(
             color = Color(0xFFFBBF24),

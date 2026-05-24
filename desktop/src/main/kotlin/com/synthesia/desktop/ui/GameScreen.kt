@@ -33,13 +33,13 @@ fun GameScreen(
 ) {
     val state by session.state.collectAsState()
     val debug by session.debug.collectAsState()
-    val seekVersion by session.seekVersion.collectAsState()
+    val seekSnap by session.seekSnap.collectAsState()
 
     var currentTimeSec by remember { mutableFloatStateOf(-PRE_ROLL_SEC) }
 
-    LaunchedEffect(seekVersion) {
-        val target = session.slots.getOrNull(state.slotIndex)?.startTimeSec ?: 0f
-        currentTimeSec = (target - PRE_ROLL_SEC).coerceAtLeast(-PRE_ROLL_SEC)
+    // Snap target travels atomically with seek version — no race on end-of-song scrub.
+    LaunchedEffect(seekSnap.version) {
+        currentTimeSec = (seekSnap.targetTimeSec - PRE_ROLL_SEC).coerceAtLeast(-PRE_ROLL_SEC)
     }
 
     LaunchedEffect(session) {
