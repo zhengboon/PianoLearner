@@ -7,7 +7,11 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import com.synthesia.desktop.game.NoteSlot
+import com.synthesia.desktop.midi.midiToName
 
 @Composable
 fun FallingNotesView(
@@ -18,6 +22,8 @@ fun FallingNotesView(
     modifier: Modifier = Modifier,
     pxPerSec: Float = 220f,
 ) {
+    val textMeasurer = rememberTextMeasurer(cacheSize = 256)
+
     Canvas(modifier = modifier) {
         drawRect(Color(0xFF0F1014), size = size)
 
@@ -25,12 +31,23 @@ fun FallingNotesView(
         val noteHeight = (size.height * 0.06f).coerceIn(18f, 40f)
         val corner = CornerRadius(noteHeight * 0.25f)
 
-        // Octave markers on C
-        val markerColor = Color(0x0FFFFFFF)
+        val labelStyle = TextStyle(
+            color = Color(0xFF111111),
+            fontSize = (noteHeight * 0.42f).coerceIn(9f, 14f).toSp(),
+        )
+
+        val cLineColor = Color(0x12FFFFFF)
+        val fLineColor = Color(0x08FFFFFF)
         for (m in KeyLayout.FIRST_MIDI..KeyLayout.LAST_MIDI) {
-            if (m % 12 != 0) continue
+            val pc = m % 12
+            if (pc != 0 && pc != 5) continue
             val cx = KeyLayout.centerX(m, size.width)
-            drawLine(markerColor, Offset(cx, 0f), Offset(cx, hitLineY), strokeWidth = 1f)
+            drawLine(
+                color = if (pc == 0) cLineColor else fLineColor,
+                start = Offset(cx, 0f),
+                end = Offset(cx, hitLineY),
+                strokeWidth = 1f,
+            )
         }
 
         for (i in slots.indices) {
@@ -42,6 +59,7 @@ fun FallingNotesView(
 
             val isCurrent = i == currentSlotIndex
             val isPast = i < currentSlotIndex
+
             for (pitch in slot.pitches) {
                 val cx = KeyLayout.centerX(pitch, size.width)
                 val w = KeyLayout.keyWidth(pitch, size.width) * 0.85f
@@ -49,14 +67,32 @@ fun FallingNotesView(
                     isCurrent && pitch in heardCurrent -> Color(0xFF22C55E)
                     isCurrent -> Color(0xFFFBBF24)
                     isPast -> Color(0xFF3F3F46)
-                    else -> Color(0xFFFB923C)
+                    pitch < 60 -> Color(0xFFFB923C)
+                    else -> Color(0xFF60A5FA)
                 }
+                val barLeft = cx - w / 2f
                 drawRoundRect(
                     color = color,
-                    topLeft = Offset(cx - w / 2f, barTop),
+                    topLeft = Offset(barLeft, barTop),
                     size = Size(w, noteHeight),
                     cornerRadius = corner,
                 )
+
+                if (!isPast && noteHeight >= 20f && w >= 26f) {
+                    val name = midiToName(pitch)
+                    val layout = textMeasurer.measure(name, labelStyle)
+                    val tw = layout.size.width.toFloat()
+                    val th = layout.size.height.toFloat()
+                    if (tw <= w - 4f && th <= noteHeight - 2f) {
+                        drawText(
+                            textLayoutResult = layout,
+                            topLeft = Offset(
+                                x = barLeft + (w - tw) / 2f,
+                                y = barTop + (noteHeight - th) / 2f,
+                            ),
+                        )
+                    }
+                }
             }
         }
 

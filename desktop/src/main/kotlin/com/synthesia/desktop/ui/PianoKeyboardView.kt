@@ -67,13 +67,11 @@ fun PianoKeyboardView(
             whiteIdx++
         }
 
-        whiteIdx = 0
+        // Black keys — use KeyLayout.centerX which now includes per-pitch-class
+        // X offset for visually correct positioning in 2- and 3-groupings.
         for (midi in KeyLayout.FIRST_MIDI..KeyLayout.LAST_MIDI) {
-            if (KeyLayout.isWhite(midi)) {
-                whiteIdx++
-                continue
-            }
-            val cx = whiteIdx * whiteW
+            if (KeyLayout.isWhite(midi)) continue
+            val cx = KeyLayout.centerX(midi, size.width)
             val x = cx - blackW / 2f
             val pressed = midi in expected || midi in heard
             val pressOffset = if (pressed) 2f else 0f

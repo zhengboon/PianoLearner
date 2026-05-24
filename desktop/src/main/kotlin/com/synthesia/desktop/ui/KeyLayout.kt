@@ -10,8 +10,6 @@ internal object KeyLayout {
 
     private val WHITE_PCS = setOf(0, 2, 4, 5, 7, 9, 11)
 
-    // Cached: WHITES_BEFORE[m] = number of white keys in [FIRST_MIDI, m).
-    // Saves an O(n) scan on every centerX/keyWidth call (hot in Canvas draws).
     private val WHITES_BEFORE: IntArray = IntArray(129).also { arr ->
         var count = 0
         for (m in 0..128) {
@@ -20,14 +18,33 @@ internal object KeyLayout {
         }
     }
 
+    // Per-pitch-class horizontal offset (in white-key-widths). Mirrors sightread's
+    // `getBlackKeyXOffset` so black keys sit asymmetrically in their 2- and
+    // 3-groupings, matching a real piano. Without this, blacks are mathematically
+    // centered between their whites and look visibly off.
+    private const val BLACK_OFFSET = 2f / 3f - 0.5f
+
     fun isWhite(midi: Int): Boolean = (midi % 12) in WHITE_PCS
 
     fun whitesBefore(midi: Int): Int = WHITES_BEFORE[midi.coerceIn(0, 128)]
 
+    fun blackKeyOffset(midi: Int): Float = when ((midi % 12 + 12) % 12) {
+        1 -> -BLACK_OFFSET
+        3 -> +BLACK_OFFSET
+        6 -> -BLACK_OFFSET
+        8 -> 0f
+        10 -> +BLACK_OFFSET
+        else -> 0f
+    }
+
     fun centerX(midi: Int, totalWidth: Float): Float {
         val whiteW = totalWidth / WHITE_KEY_COUNT
         val wIdx = whitesBefore(midi)
-        return if (isWhite(midi)) wIdx * whiteW + whiteW / 2f else wIdx * whiteW
+        return if (isWhite(midi)) {
+            wIdx * whiteW + whiteW / 2f
+        } else {
+            wIdx * whiteW + blackKeyOffset(midi) * whiteW
+        }
     }
 
     fun keyWidth(midi: Int, totalWidth: Float): Float {

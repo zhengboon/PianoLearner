@@ -20,14 +20,35 @@ internal object KeyLayout {
         }
     }
 
+    // Per-pitch-class horizontal offset (in white-key-widths) so that black keys
+    // sit asymmetrically within their 2- and 3-groupings, matching a real piano.
+    // From sightread's `getBlackKeyXOffset` (`drawing/piano.ts:23`).
+    // Without this, black keys are evenly distributed and visibly off-center for
+    // the C#/D# pair and the F#/A# pair.
+    private const val BLACK_OFFSET = 2f / 3f - 0.5f  // = 1/6
+
     fun isWhite(midi: Int): Boolean = (midi % 12) in WHITE_PCS
 
     fun whitesBefore(midi: Int): Int = WHITES_BEFORE[midi.coerceIn(0, 128)]
 
+    fun blackKeyOffset(midi: Int): Float = when ((midi % 12 + 12) % 12) {
+        1 -> -BLACK_OFFSET    // C#
+        3 -> +BLACK_OFFSET    // D#
+        6 -> -BLACK_OFFSET    // F#
+        8 -> 0f               // G# centered in the 3-grouping
+        10 -> +BLACK_OFFSET   // A#
+        else -> 0f
+    }
+
     fun centerX(midi: Int, totalWidth: Float): Float {
         val whiteW = totalWidth / WHITE_KEY_COUNT
         val wIdx = whitesBefore(midi)
-        return if (isWhite(midi)) wIdx * whiteW + whiteW / 2f else wIdx * whiteW
+        return if (isWhite(midi)) {
+            wIdx * whiteW + whiteW / 2f
+        } else {
+            // Boundary between adjacent whites + per-pitch-class fudge factor.
+            wIdx * whiteW + blackKeyOffset(midi) * whiteW
+        }
     }
 
     fun keyWidth(midi: Int, totalWidth: Float): Float {
