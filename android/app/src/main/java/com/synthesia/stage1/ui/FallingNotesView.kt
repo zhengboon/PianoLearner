@@ -61,12 +61,25 @@ fun FallingNotesView(
             )
         }
 
-        // Iterate slots. Slots are sorted by startTimeSec ascending; we early-break
-        // once we're above the top of the canvas.
-        for (i in slots.indices) {
+        // Slots are sorted by startTimeSec ascending. Binary-search the first slot
+        // whose bottom edge is still on-canvas — anything earlier has already scrolled
+        // off the bottom and can be skipped without iteration. Was an O(N) scan per
+        // frame even after the off-bottom slots; now O(log N) lookup + O(visible) draw.
+        val belowCanvasCutoff = currentTimeSec - noteHeight / pxPerSec
+        val startIdx = run {
+            var lo = 0
+            var hi = slots.size
+            while (lo < hi) {
+                val mid = (lo + hi) ushr 1
+                if (slots[mid].startTimeSec < belowCanvasCutoff) lo = mid + 1 else hi = mid
+            }
+            lo
+        }
+        for (i in startIdx until slots.size) {
             val slot = slots[i]
             val dy = (slot.startTimeSec - currentTimeSec) * pxPerSec
             val barTop = hitLineY - dy - noteHeight
+            // Defensive: binary search may pick slightly low if pxPerSec changes; safety-net
             if (barTop > hitLineY + noteHeight) continue
             if (barTop < -noteHeight) break
 

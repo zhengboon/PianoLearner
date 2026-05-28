@@ -50,7 +50,19 @@ fun FallingNotesView(
             )
         }
 
-        for (i in slots.indices) {
+        // Binary-search the first slot still on-canvas (sorted by startTimeSec).
+        // Avoids walking past hundreds of off-bottom slots each frame.
+        val belowCanvasCutoff = currentTimeSec - noteHeight / pxPerSec
+        val startIdx = run {
+            var lo = 0
+            var hi = slots.size
+            while (lo < hi) {
+                val mid = (lo + hi) ushr 1
+                if (slots[mid].startTimeSec < belowCanvasCutoff) lo = mid + 1 else hi = mid
+            }
+            lo
+        }
+        for (i in startIdx until slots.size) {
             val slot = slots[i]
             val dy = (slot.startTimeSec - currentTimeSec) * pxPerSec
             val barTop = hitLineY - dy - noteHeight
